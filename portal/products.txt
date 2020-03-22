@@ -1,0 +1,62 @@
+[
+	{
+		"name": "batata ruffles",
+		"price": 5.50,
+		"quantity": 10
+	},
+	{
+		"name": "maca pera",
+		"price": 3.50,
+		"quantity": 12
+	},
+	{
+		"name": "maca normal",
+		"price": 2.50,
+		"quantity": 15
+	},
+	{
+		"name": "banana nanica",
+		"price": 7.50,
+		"quantity": 20
+	},
+	{
+		"name": "banana prata",
+		"price": 8.50,
+		"quantity": 40
+	},
+	{
+		"name": "banana da terra",
+		"price": 6.50,
+		"quantity": 70
+	},
+	{
+		"name": "batata-frita",
+		"price": 12.00,
+		"quantity": 7
+	},
+	{
+		"name": "miojo nhaque",
+		"price": 2.50,
+		"quantity": 28
+	},
+	{
+		"name": "miojo lhame",
+		"price": 2,
+		"quantity": 100
+	},
+	{
+		"name": "rexona da porra",
+		"price": 12,
+		"quantity": 4
+	},
+	{
+		"name": "rexona 10",
+		"price": 11,
+		"quantity": 9
+	},
+	{
+		"name": "batata slam",
+		"price": 6,
+		"quantity": 45
+	}
+]

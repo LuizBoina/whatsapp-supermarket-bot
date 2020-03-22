@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adicionar produtos</title>
+</head>
+<body>
+    <h1>Adicionar Supermercado</h1>
+    {% if error_message %}
+        <p>
+            <strong>{{ error_message }}</strong>
+        </p>
+    {% endif %}
+    <form action="{% url 'add_supermarket' %}" method="post">
+        {% csrf_token %}
+        <input type="text" name="name" placeholder="name"/><br/>
+        <input type="email" name="email" placeholder="email"/><br/>
+        <button type="submit" name="action">Salvar</button><br/>
+    </form>
+    {% if supermarkets %}
+        <div>
+            <h1>Adicionar Produtos</h1>
+            <form action="{% url 'add_products' %}" method="post">
+                {% csrf_token %}
+                <select id="supermarket" name="supermarket">
+                    {% for supermarket in supermarkets %}
+                        <option value="{{ supermarket.pk }}">{{ supermarket.name }}</option>
+                    {% endfor %}
+                </select><br/>
+                <textarea type="text" name="products" placeholder="products"></textarea><br/>
+                <button type="submit" name="action">Salvar</button><br/>
+            </form>
+        </div>
+        <div>
+            {% for supermarket in supermarkets %}
+                <p>{{ supermarket.1 }} </p><button>Mostrar produtos</button>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>Adicione um supermercado para adicionar produtos.</p>
+    {% endif %}
+    
+</body>
+</html>
