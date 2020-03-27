@@ -1,0 +1,17 @@
+----------------BOT--------------------------------
+Salvar sessão
+Salvar numero de quem deseja receber promoções todo dia
+como o google sabe que eu digitei errado?
+fazer um limite para requisicoes
+primeira mensagem do dia o cliente recebera mensagem com as promocoes
+tratar questoes de seguranca
+adicionar lista de contatos para mandar promocoes diarias
+MESSAGE-OUT CHAMA FUNCAO QUANDO O BOT MANDA MSG
+QUANDO EU MANDO MSG N DA NDA
+
+minizar o numero de mensagens lidas por vez(talvez só executar a ultima)
+---------------PORTAL--------------------------
+mandar email quando o estoque acabar
+como é adicionado itens do estoque no sistema de um supermercado?
+é possivel eu me conectar diretamente com o db do supermercado?
+Passar para Ruby on Rails

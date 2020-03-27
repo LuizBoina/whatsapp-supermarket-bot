@@ -2,3 +2,5 @@
 portal/db.sqlite3
 portal/portal/__pycache__/
 portal/products/__pycache__/
+chromedriver
+whatsapp_session/
