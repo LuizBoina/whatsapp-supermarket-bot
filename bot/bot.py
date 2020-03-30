@@ -1,31 +1,26 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, ElementNotVisibleException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 import time
 import os.path
-#import locale
-from urllib.parse import quote_plus
+import tkinter
+from tkinter import messagebox
 import sqlite3
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.alert import Alert
-
-try:
-    from bs4 import BeautifulSoup
-except ModuleNotFoundError:
-    print("Beautiful Soup Library is required to make this library work(For getting participants list for the specified group).\npip3 install beautifulsoup4")
 
 # xpath constants
 USER_SEARCH_XPATH="/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]"
 MESSAGE_BUBBLE_XPATH="/html/body/div/div/div/div[4]/div/footer/div[1]/div[2]/div/div[2]"
 HEADER_BAR_XPATH="/html/body/div[1]/div/div/div[3]/div/header"
 SPAN_CHAT_NAMES_XPATH="/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div/div/div[*]/div/div/div[2]/div[1]/div[1]/span/span"
-# SPAN_UNREAD_MESSAGES_TAG don't tested if someone is muted!!!
+# SPAN_UNREAD_MESSAGES_TAG don't tested if someone is muted (maybe change xpath of unread tag)!!!
 SPAN_UNREAD_MESSAGES_TAG="/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div/div/div[*]/div/div/div[2]/div[2]/div[2]/span[1]/div/span"
 
-# join bot path with that that contains sqlite db
+# join bot path with db path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 db_path = os.path.join(BASE_DIR, "../portal/db.sqlite3")
 
@@ -48,8 +43,8 @@ class BotConfig(object):
             self.driver.get('https://web.whatsapp.com')
             WebDriverWait(self.driver, wait).until(EC.presence_of_element_located(
                 (By.XPATH, HEADER_BAR_XPATH)))
-        except NoSuchElementException as e:
-            print(e)
+        except (NoSuchElementException, TimeoutException) as e:
+            messagebox.showerror("Impossível conectar com o Dispositivo", u"Não foi possível conectar com o dispositivo, verifique se o dispositivo está ligado e possuí conexão à internet")
 
 # return list of contact
     def get_contacts(self):
@@ -73,7 +68,6 @@ class BotConfig(object):
         for i in range(0, scrolls):
             self.driver.execute_script(
                 "document.getElementById('pane-side').scrollTop={}".format(initial))
-            # soup = BeautifulSoup(self.driver.page_source, "html.parser")
             for unread_tag in self.driver.find_elements_by_xpath(SPAN_UNREAD_MESSAGES_TAG):
                 #get username
                 name = unread_tag.find_element_by_xpath('./../../../../../div[1]/div/span/span').get_attribute('innerHTML')
@@ -154,15 +148,13 @@ class Bot(object):
 
     def bot_options(self, action):
         conn = None
-        simple_menu = {                                 # function requires no extra arguments
+        simple_menu = {                          # function requires no extra arguments
             "ajuda": self._help_commands,
             "cadastrar": self.register_client
         }
         simple_menu_keys = simple_menu.keys()
         try:
             command_args = action.split(" ", 1)
-            # command_args = [command_arg.lower()
-            #                 for command_arg in _command_args]
             print("Command args: {cmd}".format(cmd=command_args))
 
             if len(command_args) == 1 and command_args[0] in simple_menu_keys:
@@ -206,11 +198,30 @@ class Bot(object):
         print("Asking for help")
         return u"Lista de comandos dísponiveis:\nAjuda: Lista de comandos disponíveis;\nCadastrar: Cadastra seu número para receber novas promoções da loja;\nProduto [nome do produto]: Lista todos as marcas desses produtos em estoque e seus respectivos preços."
 
-if __name__ == "__main__":
+
+def botRun():
+    botConfig = None
     try:
-        print("Bot is active, scan your QR code from your phone's WhatsApp")
         botConfig = BotConfig(session="whatsapp_session")
         Bot(botConfig)
+    except WebDriverException as e:
+        print(e)
+        root = tkinter.Tk()
+        root.withdraw()
+        messagebox.showwarning("Janela fechada",u"Por favor, abra novamente o aplicativo e não feche a aba!")
+        root.destroy()
     finally:
         print('entrou block finally main')
-        botConfig.close_driver()
+        if botConfig:
+            botConfig.close_driver()
+
+def portalRun():
+    print('rodar portal')
+
+if __name__ == "__main__":
+    # botRun()
+    root = tkinter.Tk() 
+    root.title('Menu Bot') 
+    tkinter.Button(root, text='Rodar Whatsapp Bot', width=25, command=lambda: (root.destroy(), botRun())).pack()
+    tkinter.Button(root, text='Adicionar/Modificar produtos', width=25, command=lambda: (root.destroy(), botRun())).pack()
+    root.mainloop()
