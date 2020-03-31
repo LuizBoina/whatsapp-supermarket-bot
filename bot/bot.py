@@ -7,7 +7,9 @@ import time
 import os.path
 import tkinter
 from tkinter import messagebox
+from tkinter import filedialog
 import sqlite3
+import csv
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.alert import Alert
@@ -21,8 +23,8 @@ SPAN_CHAT_NAMES_XPATH="/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div/di
 SPAN_UNREAD_MESSAGES_TAG="/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div/div/div[*]/div/div/div[2]/div[2]/div[2]/span[1]/div/span"
 
 # join bot path with db path
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-db_path = os.path.join(BASE_DIR, "../portal/db.sqlite3")
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# db_path = os.path.join(BASE_DIR, "db.sqlite3")
 
 
 class BotConfig(object):
@@ -162,11 +164,11 @@ class Bot(object):
             elif command_args[0] == 'produto':
                 print('entrou produto')
                 # product_name = (command_args[1], )
-                with sqlite3.connect(db_path) as conn:
+                with sqlite3.connect('db.sqlite3') as conn:
                     # where name contain some part of string in command_args[1]
                     cursor = conn.cursor()
                     _products = conn.execute(
-                        "SELECT name, price FROM products_product WHERE INSTR(name, ?) > 0 AND quantity > 0", (command_args[1], ))
+                        "SELECT name, price FROM products WHERE INSTR(name, ?) > 0 AND quantity > 0;", (command_args[1].upper(), ))
                     products = _products.fetchall()
                     if products:
                         message = "".join(
@@ -196,10 +198,13 @@ class Bot(object):
 
     def _help_commands(self):
         print("Asking for help")
-        return u"Lista de comandos dísponiveis:\nAjuda: Lista de comandos disponíveis;\nCadastrar: Cadastra seu número para receber novas promoções da loja;\nProduto [nome do produto]: Lista todos as marcas desses produtos em estoque e seus respectivos preços."
+        return u'Lista de comandos dísponiveis:\n' \
+                   'Ajuda: Lista de comandos disponíveis;\n' \
+                   'Cadastrar: Cadastra seu número para receber novas promoções da loja;\n' \
+                   'Produto [nome do produto]: Lista todos as marcas desses produtos em estoque e seus respectivos preços.'
 
 
-def botRun():
+def handleBot():
     botConfig = None
     try:
         botConfig = BotConfig(session="whatsapp_session")
@@ -215,13 +220,34 @@ def botRun():
         if botConfig:
             botConfig.close_driver()
 
-def portalRun():
-    print('rodar portal')
+def handleDB():
+    root = tkinter.Tk() 
+    root.withdraw()
+    root.title('Importar planilha')
+    file = filedialog.askopenfile(initialdir =  "/home/boina", parent=root,mode='rb',title='Selecionar a planilha de produtos'
+        , filetypes = (("CSV Files","*.csv"), ("Excel files", "*.xlsx *.xls")))
+    if not file:
+        root.withdraw()
+        messagebox.showwarning("Arquivo não selecionado",
+                                u"Por favor, abra novamente o aplicativo e selecione um arquivo válido para adicionar produtos!")
+        root.destroy()
+
+    else:
+        root.destroy()
+        with open(file.name, newline='') as products_path:
+            products = csv.DictReader(products_path, delimiter=';')
+            to_db = [(prod["name"], prod["price"], prod["quantity"]) for prod in products]
+            con = sqlite3.connect('db.sqlite3')
+            cur = con.cursor()
+            cur.executemany("INSERT INTO products (name, price, quantity) VALUES (?, ?, ?);", to_db)
+            con.commit()
+            con.close()
+    root.mainloop()
+    
 
 if __name__ == "__main__":
-    # botRun()
     root = tkinter.Tk() 
     root.title('Menu Bot') 
-    tkinter.Button(root, text='Rodar Whatsapp Bot', width=25, command=lambda: (root.destroy(), botRun())).pack()
-    tkinter.Button(root, text='Adicionar/Modificar produtos', width=25, command=lambda: (root.destroy(), botRun())).pack()
+    tkinter.Button(root, text='Rodar Whatsapp Bot', width=25, command=lambda: (root.destroy(), handleBot())).pack()
+    tkinter.Button(root, text='Adicionar/Modificar produtos', width=25, command=lambda: (root.destroy(), handleDB())).pack()
     root.mainloop()
