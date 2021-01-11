@@ -9,10 +9,10 @@ import tkinter
 from tkinter import messagebox
 from tkinter import filedialog
 import sqlite3
-import csv
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.alert import Alert
+import urllib.request
 
 # xpath constants
 USER_SEARCH_XPATH="/html/body/div[1]/div/div/div[3]/div/div[1]/div/label/div/div[2]"
@@ -26,6 +26,16 @@ SPAN_UNREAD_MESSAGES_TAG="/html/body/div[1]/div/div/div[3]/div/div[2]/div[1]/div
 # BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # db_path = os.path.join(BASE_DIR, "db.sqlite3")
 
+def showMessage(kind, title, message):
+    root = tkinter.Tk()
+    root.withdraw()
+    if kind == "info":
+        messagebox.showinfo(title, message)
+    elif kind == "warning":
+        messagebox.showwarning(title, message)
+    else:
+        messagebox.showerror(title, message)
+    root.destroy()
 
 class BotConfig(object):
     chrome_options = None
@@ -34,19 +44,30 @@ class BotConfig(object):
     contacts = []
 
     def __init__(self, wait=60, session=None):
+        chromedriver_path="/home/luizboina/Projects/whatsapp-supermarket-bot/chromedriver"
         self.chrome_options = Options()
+        # self.chrome_options.add_argument("--no-sandbox") 
+        # self.chrome_options.add_argument("--disable-dev-shm-using") 
+        # self.chrome_options.add_argument("--headless") 
         if session:
             self.chrome_options.add_argument(
                 "--user-data-dir={}".format(session))
 
         try:
-            self.driver = webdriver.Chrome("../chromedriver",
+            self.driver = webdriver.Chrome(executable_path=chromedriver_path,
                                            options=self.chrome_options)
             self.driver.get('https://web.whatsapp.com')
             WebDriverWait(self.driver, wait).until(EC.presence_of_element_located(
                 (By.XPATH, HEADER_BAR_XPATH)))
         except (NoSuchElementException, TimeoutException) as e:
-            messagebox.showerror("Impossível conectar com o Dispositivo", u"Não foi possível conectar com o dispositivo, verifique se o dispositivo está ligado e possuí conexão à internet")
+            title="Impossível conectar com o Dispositivo"
+            message=u"Não foi possível conectar com o dispositivo, verifique se o dispositivo está ligado e possuí conexão à internet"
+            showMessage("error", title, message)
+        except (WebDriverException) as e:
+            title="Impossível abrir navegador"
+            message=u"Não foi possível conectar com o dispositivo, verifique se o chrome esta instalado na mesma versão que o chromedriver"
+            showMessage("error", title, message)
+
 
 # return list of contact
     def get_contacts(self):
@@ -81,7 +102,6 @@ class BotConfig(object):
         return usernames
 
     def send_message(self, message):
-        print("ENTROU SEND_MESSAGE------------ message: ", message)
         if message is None:
             return
         # send_msg = self.driver.find_elements_by_xpath(MESSAGE_BUBBLE_XPATH)
@@ -89,6 +109,7 @@ class BotConfig(object):
             (By.XPATH, MESSAGE_BUBBLE_XPATH)))
         messages = message.split("\n")
         for msg in messages:
+            print(msg,'\n')
             send_msg.send_keys(msg)
             send_msg.send_keys(Keys.SHIFT+Keys.ENTER)
         send_msg.send_keys(Keys.ENTER)
@@ -143,49 +164,55 @@ class Bot(object):
                 for client_name in unread_clients_name:
                     last_message = self.config.get_unread_last_message(
                         client_name)
-                    self.bot_options(action=last_message)
+                    self.bot_action(action=last_message)
                     # need to refresh otherwise pin dont appears
             time.sleep(1)
             # self.poll_chat()
 
-    def bot_options(self, action):
+    def bot_action(self, action):
         conn = None
         simple_menu = {                          # function requires no extra arguments
             "ajuda": self._help_commands,
-            "cadastrar": self.register_client
+            "filiais": self.send_shops,
+            "cadastrar": self.register_client,
+            "decadastrar": self.unregister_client,
         }
         simple_menu_keys = simple_menu.keys()
         try:
-            command_args = action.split(" ", 1)
+            command_args = action.split(" ")
             print("Command args: {cmd}".format(cmd=command_args))
 
             if len(command_args) == 1 and command_args[0] in simple_menu_keys:
                 self.config.send_message(simple_menu[command_args[0]]())
             elif command_args[0] == 'produto':
                 print('entrou produto')
-                # product_name = (command_args[1], )
-                with sqlite3.connect('db.sqlite3') as conn:
+                with sqlite3.connect('products.db') as conn:
                     # where name contain some part of string in command_args[1]
                     cursor = conn.cursor()
                     _products = conn.execute(
-                        "SELECT name, price FROM products WHERE INSTR(name, ?) > 0 AND quantity > 0;", (command_args[1].upper(), ))
+                        "SELECT name, price FROM products WHERE name LIKE {} AND quantity > 0;".format("'"+command_args[1].upper()+"%'"))
                     products = _products.fetchall()
                     if products:
+                        header = "Consulta na filial Casagrande Hiper - Araçá\n"
                         message = "".join(
-                            u"{name} - R${price}\n".format(name=product[0], price=product[1]) for product in products)
+                            u"{name} - *R${price}*\n".format(name=product[0], price=product[1]) for product in products)
                         self.config.send_message(message)
+                        message = header + message
                     else:
                         self.config.send_message(u"Produto indisponível")
+            elif command_args[0] == 'loja':
+                print('entrou loja')
+                self.config.send_message(u"Loja selecionada com sucesso!")
 
             else:
-                self.config.send_message(
-                    u'Comando Inválido, digite "ajuda" para ver as opções disponíveis')
+                self.config.send_message(self._help_commands())
                 #raise KeyError()
 
         except KeyError as e:  # mandar mensagem de ajuda
             print("Key Error Exception: {err}".format(err=str(e)))
-            self.config.send_message(
-                u'Comando Inválido, digite "ajuda" para ver as opções disponíveis')
+            self.config.send_message(self._help_commands())
+        except sqlite3.OperationalError as e:
+            showMessage("error", "Erro ao recuperar dados", u"Por favor, verifique se o arquivo 'products.db' foi criado e esta atualizado")
 
         finally:
             if conn:
@@ -194,60 +221,26 @@ class Bot(object):
             self.config.goto_main()
 
     def register_client(self):
-        self.config.send_message("Funcionalidade em desenvolvimento!")
+        self.config.send_message("Número cadastrado com sucesso! Você irá receber promoções de nossas filiais todos os dias")
+
+    def unregister_client(self):
+        self.config.send_message("Cadastrado cancelado com sucesso! Você não irá receber mais promoções de nossas filiais")
+
+    def send_shops(self):
+        self.config.send_message("Lista de nossas filiais:\n" \
+                                    "1 - Casagrande Hiper - Araçá\n" \
+                                    "2 - Casagrande - Interlagos\n" \
+                                    "3 - Casagrande - BNH\n" \
+                                    "4 - Casagrande - Aviso\n" \
+                                    "5 - Casagrande - Centro"
+        )
 
     def _help_commands(self):
         print("Asking for help")
-        return u'Lista de comandos dísponiveis:\n' \
-                   'Ajuda: Lista de comandos disponíveis;\n' \
-                   'Cadastrar: Cadastra seu número para receber novas promoções da loja;\n' \
-                   'Produto [nome do produto]: Lista todos as marcas desses produtos em estoque e seus respectivos preços.'
-
-
-def handleBot():
-    botConfig = None
-    try:
-        botConfig = BotConfig(session="whatsapp_session")
-        Bot(botConfig)
-    except WebDriverException as e:
-        print(e)
-        root = tkinter.Tk()
-        root.withdraw()
-        messagebox.showwarning("Janela fechada",u"Por favor, abra novamente o aplicativo e não feche a aba!")
-        root.destroy()
-    finally:
-        print('entrou block finally main')
-        if botConfig:
-            botConfig.close_driver()
-
-def handleDB():
-    root = tkinter.Tk() 
-    root.withdraw()
-    root.title('Importar planilha')
-    file = filedialog.askopenfile(initialdir =  "/home/boina", parent=root,mode='rb',title='Selecionar a planilha de produtos'
-        , filetypes = (("CSV Files","*.csv"), ("Excel files", "*.xlsx *.xls")))
-    if not file:
-        root.withdraw()
-        messagebox.showwarning("Arquivo não selecionado",
-                                u"Por favor, abra novamente o aplicativo e selecione um arquivo válido para adicionar produtos!")
-        root.destroy()
-
-    else:
-        root.destroy()
-        with open(file.name, newline='') as products_path:
-            products = csv.DictReader(products_path, delimiter=';')
-            to_db = [(prod["name"], prod["price"], prod["quantity"]) for prod in products]
-            con = sqlite3.connect('db.sqlite3')
-            cur = con.cursor()
-            cur.executemany("INSERT INTO products (name, price, quantity) VALUES (?, ?, ?);", to_db)
-            con.commit()
-            con.close()
-    root.mainloop()
-    
-
-if __name__ == "__main__":
-    root = tkinter.Tk() 
-    root.title('Menu Bot') 
-    tkinter.Button(root, text='Rodar Whatsapp Bot', width=25, command=lambda: (root.destroy(), handleBot())).pack()
-    tkinter.Button(root, text='Adicionar/Modificar produtos', width=25, command=lambda: (root.destroy(), handleDB())).pack()
-    root.mainloop()
+        return u"Bem Vindo ao chatbot do Casagrande! Siga as instruções abaixo para obter o que deseja.\n" \
+                   "Lista de comandos dísponiveis:\n" \
+                   "*Ajuda*: Lista de comandos disponíveis;\n" \
+                   "*Filiais*: Lista as filiais disponíveis na região;\n" \
+                   "*Cadastrar*: Cadastra seu número para receber novas promoções das filiais;\n" \
+                   "*Cancelar*: Cancela o recebimento de novas promoções das filiais;\n" \
+                   "*Produto* _[nome do produto]_ _[número da filial]_: Lista todos os produtos em estoque e seus respectivos preços da filial selecionada."
